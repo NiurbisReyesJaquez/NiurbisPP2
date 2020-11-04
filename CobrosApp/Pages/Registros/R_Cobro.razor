@@ -1,0 +1,256 @@
+﻿@page "/cobros"
+
+@using Models
+@using CobrosApp.BLL
+@inject IToastService toast
+
+<EditForm Model="cobros" OnValidSubmit="Guardar">
+    <DataAnnotationsValidator></DataAnnotationsValidator>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>Registro de cobros</h3>
+        </div>
+        <div class="card-body">
+            <form>
+                @*ID*@
+                <div class="form-group">
+                    <label>Id</label>
+                    <div class="input-group">
+                        <InputNumber class="form-control col-4" @bind-Value="cobros.CobrosId"></InputNumber>
+                        <ValidationMessage For="@(() => cobros.CobrosId)"></ValidationMessage>
+                        <button type="button" class="btn btn-primary input-group-append" @onclick="Buscar">Buscar</button>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    @*Cliente Id*@
+                    <div class="form-group col-6">
+                        <label>Cliente</label>
+                        <select class="form-control" @bind="cobros.ClienteId">
+                            @foreach (var item in ClientesBLL.GetClientes())
+                            {
+                                <option value="@item.ClienteId">@item.Nombres</option>
+                            }
+                        </select>
+                        <ValidationMessage For="@(() => cobros.ClienteId)"></ValidationMessage>
+                    </div>
+                    @*Fecha*@
+                    <div class="form-group col-6">
+                        <label>Fecha</label>
+                        <InputDate class="form-control" @bind-Value="cobros.Fecha"></InputDate>
+                        <ValidationMessage For="@(() => cobros.Fecha)"></ValidationMessage>
+                    </div>
+
+                </div>
+
+                <div class="card-header">
+                    <div class="form-row">
+                        <div class="form-group col-5">
+                            <label>Venta</label>
+                            <select class="form-control" @bind="VentaId" @onclick="HalarDatos">
+                                @foreach (var item in VentasBLL.GetVentas())
+                                {
+                                    <option value="@item.VentaId">@item.VentaId</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label> </label>
+                            <button type="button" class="btn btn-primary btn-block" @onclick="AgregarAlDetalle"><span class="oi oi-plus"></span></button>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="card-body">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Id</th>
+                                <th>Fecha</th>
+                                <th>Monto</th>
+                                <th>Balance</th>
+                                <th>Cobrado</th>
+                                <th>Pagar</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in cobros.CobrosApp)
+                            {
+                                <tr>
+                                    <td>@VentasBLL.Buscar(item.VentasId).VentaId</td>
+                                    <td>@VentasBLL.Buscar(item.VentasId).Fecha</td>
+                                    <td>@VentasBLL.Buscar(item.VentasId).Monto</td>
+                                    <td>@VentasBLL.Buscar(item.VentasId).Balance</td>
+                                    <td>@(item.Pagar == true ? VentasBLL.Buscar(item.VentasId).Balance : item.Cobrado)</td>
+
+                                    <td><input type="checkbox" class="form-check-input" @bind="item.Pagar" @onclick="CalcularCobrado" /></td>
+                                    <td><button type="button" class="btn btn-danger" @onclick="(() => (EliminarDetalle(item))">Remover</button></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer">
+                    <div class="form-row">
+                        <div class="form-group col-4">
+                            <label>Totales</label>
+                            <InputNumber class="form-control" @bind-Value="cobros.Totales"></InputNumber>
+                        </div>
+                        <div class="col-3">
+
+                        </div>
+                        <div class="form-group col-3">
+                            <label>Total cobrado</label>
+                            <InputNumber class="form-control" @bind-Value="TotalCobrado"></InputNumber>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-4">
+                            <label>Observaciones</label>
+                            <textarea class="form-control" @bind="cobros.Observaciones" rows="2" cols="20"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+            </form>
+        </div>
+        <div class="card-footer">
+            <div class="form-group text-center" display: inline-block>
+                <button type="button" class="btn btn-lg btn-primary" @onclick="Nuevo"> <span class="oi oi-file"></span> Nuevo </button>
+                <button type="submit" class="btn btn-lg btn-success"> <span class="oi oi-cloud"></span> Guardar </button>
+                <button type="button" class="btn btn-lg btn-danger" @onclick="Eliminar"> <span class="oi oi-trash"></span> Eliminar </button>
+            </div>
+        </div>
+    </div>
+
+</EditForm>
+
+@code {
+
+
+    private Cobros cobros = new Cobros();
+
+    public int VentaId { get; set; }
+
+    public double Monto { get; set; }
+    public double Balance { get; set; }
+    public double Cobrado { get; set; }
+    public double TotalCobrado { get; set; }
+    public int CobrosId { get; set; }
+    public bool Pagar { get; set; }
+
+
+
+    protected override void OnInitialized()
+    {
+
+        Nuevo();
+        Buscar();
+
+    }
+    public void Nuevo()
+    {
+        cobros = new Cobros();
+    }
+
+    public void Guardar()
+    {
+        bool guardado = CobrosBLL.Guardar(cobros);
+
+        if (guardado)
+        {
+            Nuevo();
+            toast.ShowSuccess("Guardado exitosamente");
+        }
+        else
+        {
+            toast.ShowError("No se pudo guardar");
+        }
+    }
+    public void Buscar()
+    {
+        if (cobros.CobrosId > 0)
+        {
+            var encontrado = CobrosBLL.Buscar(cobros.CobrosId);
+
+            if (encontrado != null)
+                this.cobros = encontrado;
+
+            toast.ShowWarning("No encontrado");
+        }
+    }
+
+    public void Eliminar()
+    {
+        bool eliminado = CobrosBLL.Eliminar(cobros.CobrosId);
+
+        if (eliminado)
+        {
+            Nuevo();
+            toast.ShowSuccess("Eliminado exitosamente");
+        }
+        else
+        {
+            toast.ShowError("No se pudo eliminar");
+        }
+    }
+    public void AgregarAlDetalle()
+    {
+        cobros.CobrosApp.Add(new CobrosDetalle
+        {
+            Id = 0,
+            VentasId = VentaId,
+            CobrosId = cobros.CobrosId,
+            Cobrado = Cobrado,
+            Balance = Balance,
+            Pagar = Pagar
+        });
+        CalcularMonto();
+    }
+
+    public void HalarDatos()
+    {
+        var ventas = VentasBLL.Buscar(VentaId);
+
+    }
+
+    private void EliminarDetalle(CobrosDetalle detalle)
+    {
+        cobros.CobrosApp.Remove(detalle);
+        CalcularMonto();
+
+    }
+
+    public void CalcularMonto()
+    {
+        //Recorro el detalle
+        cobros.Totales = 0;
+
+        foreach (var item in cobros.CobrosApp)
+        {
+            //Le sumo el monto de las facturas que estan en el detalle
+            cobros.Totales += VentasBLL.Buscar(item.VentasId).Monto;
+        }
+    }
+    public void CalcularCobrado()
+    {
+        foreach (var item in cobros.CobrosApp)
+        {
+            if (item.Pagar)
+            {
+                TotalCobrado += item.Balance;
+            }
+            else
+            {
+                TotalCobrado += 0;
+            }
+        }
+
+    }
+
+
+
+}
